@@ -131,8 +131,16 @@ materias.forEach(m=>{
 const net = new vis.Network(
   document.getElementById("network"),
   {nodes,edges},
-  {layout:{hierarchical:{enabled:true,direction:"UD"}},physics:false}
-);
+  {
+  layout: {
+    hierarchical: {
+      enabled: true,
+      direction: "UD",
+      sortMethod: "directed"
+    }
+  },
+  physics: false
+}
 
 net.on("click",e=>{
   if(!e.nodes.length) return;
