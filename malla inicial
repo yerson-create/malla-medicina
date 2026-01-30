@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Malla Curricular Medicina UIS</title>
+
+<script src="https://unpkg.com/vis-network@9.1.2/dist/vis-network.min.js"></script>
+<link href="https://unpkg.com/vis-network@9.1.2/dist/vis-network.min.css" rel="stylesheet"/>
+
+<style>
+body{
+  margin:0;
+  background:#020617;
+  font-family:system-ui, sans-serif;
+  color:#e5e7eb;
+}
+header{
+  padding:14px;
+  text-align:center;
+  font-size:22px;
+  font-weight:600;
+  border-bottom:1px solid #1e293b;
+}
+#network{
+  width:100vw;
+  height:calc(100vh - 60px);
+}
+.legend{
+  position:fixed;
+  bottom:15px;
+  left:15px;
+  background:#020617;
+  padding:10px;
+  border-radius:8px;
+  font-size:13px;
+}
+.dot{
+  width:12px;
+  height:12px;
+  border-radius:50%;
+  display:inline-block;
+  margin-right:6px;
+}
+button{
+  position:fixed;
+  top:12px;
+  right:12px;
+  padding:8px 14px;
+  border:none;
+  border-radius:8px;
+  background:#ef4444;
+  color:white;
+  font-weight:600;
+  cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+
+<header>🩺 Malla Curricular Medicina UIS</header>
+<button onclick="resetear()">Reset</button>
+<div id="network"></div>
+
+<div class="legend">
+  <div><span class="dot" style="background:#64748b"></span>Bloqueada</div>
+  <div><span class="dot" style="background:#3b82f6"></span>Disponible</div>
+  <div><span class="dot" style="background:#22c55e"></span>Aprobada</div>
+</div>
+
+<script>
+const STORAGE = "malla_uis_estado";
+
+const materias = [
+  {id:1,n:"BIOCIENCIAS MEDICAS I",s:1,c:5,p:[]},
+  {id:2,n:"BIOLOGIA CELULAR",s:1,c:5,p:[]},
+  {id:3,n:"FUNDAMENTOS DE MEDICINA I",s:1,c:3,p:[]},
+  {id:4,n:"INGLES I",s:1,c:4,p:[]},
+  {id:5,n:"DESARROLLO HUMANO Y SEXUALIDAD I",s:1,c:1,p:[]},
+  {id:6,n:"TALLER DE LENGUAJE",s:1,c:3,p:[]},
+  {id:7,n:"CATEDRA UIS",s:1,c:0,p:[]},
+
+  {id:8,n:"MORFOFISIOLOGIA I",s:2,c:15,p:["BIOCIENCIAS MEDICAS I","BIOLOGIA CELULAR"]},
+  {id:9,n:"FUNDAMENTOS DE MEDICINA II",s:2,c:3,p:["FUNDAMENTOS DE MEDICINA I"]},
+  {id:10,n:"DESARROLLO HUMANO Y SEXUALIDAD II",s:2,c:1,p:["DESARROLLO HUMANO Y SEXUALIDAD I"]},
+
+  {id:11,n:"MORFOFISIOLOGIA II Y PSICOBIOLOGIA",s:3,c:8,p:["MORFOFISIOLOGIA I","FUNDAMENTOS DE MEDICINA II"]},
+  {id:12,n:"BIOCIENCIAS MEDICAS II",s:3,c:5,p:["BIOCIENCIAS MEDICAS I","MORFOFISIOLOGIA I"]},
+  {id:13,n:"BIOMETRIA POBLACIONAL",s:3,c:4,p:["FUNDAMENTOS DE MEDICINA II"]},
+  {id:14,n:"INGLES II",s:3,c:4,p:["INGLES I"]},
+
+  {id:15,n:"PATOLOGIA GENERAL",s:4,c:7,p:["MORFOFISIOLOGIA II Y PSICOBIOLOGIA","BIOCIENCIAS MEDICAS II"]},
+  {id:16,n:"PSICOPATOLOGIA",s:4,c:2,p:["MORFOFISIOLOGIA II Y PSICOBIOLOGIA"]},
+  {id:17,n:"GENETICA Y BIOLOGIA",s:4,c:2,p:["MORFOFISIOLOGIA II Y PSICOBIOLOGIA","BIOCIENCIAS MEDICAS II"]},
+  {id:18,n:"ETICA MEDICA",s:4,c:1,p:[]},
+
+  {id:19,n:"SEMIOLOGIA GENERAL",s:5,c:8,p:["PATOLOGIA GENERAL"]},
+  {id:20,n:"FARMACOLOGIA GENERAL",s:5,c:5,p:["PATOLOGIA GENERAL"]},
+
+  {id:21,n:"MEDICINA INTERNA",s:6,c:14,p:["SEMIOLOGIA GENERAL","FARMACOLOGIA GENERAL"]},
+  {id:22,n:"PEDIATRIA",s:7,c:14,p:["MEDICINA INTERNA"]},
+  {id:23,n:"GINECOBSTETRICIA",s:8,c:14,p:["MEDICINA INTERNA"]},
+  {id:24,n:"CIRUGIA",s:9,c:13,p:["MEDICINA INTERNA","PEDIATRIA"]},
+  {id:25,n:"PSIQUIATRIA",s:10,c:9,p:["PEDIATRIA","GINECOBSTETRICIA"]}
+];
+
+let estado = JSON.parse(localStorage.getItem(STORAGE)) || {};
+materias.forEach(m=>{
+  if(!estado[m.n]) estado[m.n]=m.p.length===0?"available":"locked";
+});
+
+const nodes = new vis.DataSet();
+const edges = new vis.DataSet();
+
+materias.forEach(m=>{
+  nodes.add({
+    id:m.id,
+    label:m.n,
+    color:color(estado[m.n]),
+    shape:"box",
+    margin:10,
+    font:{color:"#e5e7eb"},
+    level:m.s
+  });
+
+  m.p.forEach(pr=>{
+    const o = materias.find(x=>x.n===pr);
+    if(o) edges.add({from:o.id,to:m.id,arrows:"to",smooth:true});
+  });
+});
+
+const net = new vis.Network(
+  document.getElementById("network"),
+  {nodes,edges},
+  {layout:{hierarchical:{enabled:true,direction:"UD"}},physics:false}
+);
+
+net.on("click",e=>{
+  if(!e.nodes.length) return;
+  const m = materias.find(x=>x.id===e.nodes[0]);
+  if(estado[m.n]!=="available") return;
+  estado[m.n]="approved";
+  nodes.update({id:m.id,color:color("approved")});
+  desbloquear();
+  guardar();
+});
+
+function desbloquear(){
+  materias.forEach(m=>{
+    if(estado[m.n]==="locked"){
+      if(m.p.every(p=>estado[p]==="approved")){
+        estado[m.n]="available";
+        nodes.update({id:m.id,color:color("available")});
+      }
+    }
+  });
+}
+
+function guardar(){
+  localStorage.setItem(STORAGE,JSON.stringify(estado));
+}
+
+function resetear(){
+  if(confirm("¿Reiniciar toda la malla?")){
+    localStorage.removeItem(STORAGE);
+    location.reload();
+  }
+}
+
+function color(e){
+  return {locked:"#64748b",available:"#3b82f6",approved:"#22c55e"}[e];
+}
+</script>
+
+</body>
+</html>
